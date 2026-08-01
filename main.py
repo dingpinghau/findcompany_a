@@ -1,4 +1,6 @@
-"""Production entrypoint — reads PORT directly via os.environ so the start
+"""Production entrypoint at the project root — Zeabur's Python builder
+(zbpack) auto-detects and runs `main.py` at the repo root by convention,
+ignoring Procfile. Also reads PORT directly via os.environ so the start
 command never depends on the platform's shell expanding $PORT (Zeabur's
 Start Command is not run through a shell, so `--port $PORT` fails there).
 """
