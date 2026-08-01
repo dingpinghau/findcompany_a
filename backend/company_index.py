@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import time
 from pathlib import Path
 
 import httpx
 
 from backend.util import gregorian8_to_iso, parse_number
+
+logger = logging.getLogger(__name__)
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / "data_cache"
 CACHE_TTL_SECONDS = 24 * 60 * 60
@@ -34,11 +37,20 @@ class CompanyIndex:
         return self.by_tax_id.get(tax_id)
 
     async def load(self):
-        CACHE_DIR.mkdir(exist_ok=True)
+        try:
+            CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            logger.warning("無法建立快取目錄 %s：%s（改用純記憶體模式，不快取）", CACHE_DIR, exc)
+
         async with httpx.AsyncClient(timeout=30) as client:
             for market_key, (url, market_label) in SOURCES.items():
-                text = await self._get_csv(client, market_key, url)
-                self._index_csv(text, market_key, market_label)
+                try:
+                    text = await self._get_csv(client, market_key, url)
+                    self._index_csv(text, market_key, market_label)
+                except Exception as exc:
+                    # Never let a flaky external data source take the whole app down —
+                    # worse case is just no listing/stock-code cross-reference for this market.
+                    logger.warning("載入 %s 公司清單失敗，略過：%s", market_label, exc)
 
     async def _get_csv(self, client: httpx.AsyncClient, market_key: str, url: str) -> str:
         cache_file = CACHE_DIR / f"{market_key}.csv"
