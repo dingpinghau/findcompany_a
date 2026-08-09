@@ -4,3 +4,7 @@ __pycache__/
 .env
 data_cache/
 .DS_Store
+Project/backend/app.db
+Project/frontend/node_modules/
+Project/frontend/dist/
+Project/.nodeenv/
