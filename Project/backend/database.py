@@ -1,9 +1,13 @@
+import os
 from pathlib import Path
 
 from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine
 
-DB_PATH = Path(__file__).resolve().parent / "app.db"
+# Configurable via DB_PATH so a deployment can point this at a mounted volume
+# without that volume shadowing the application code directory (backend/).
+DB_PATH = Path(os.environ.get("DB_PATH", Path(__file__).resolve().parent / "app.db"))
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 
 
