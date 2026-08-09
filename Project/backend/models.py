@@ -32,6 +32,26 @@ BID_SUBMIT_STAGE_KEY = "bid_submit"
 ROLE_OPTIONS = ["admin", "poweruser", "user"]
 PROJECT_EDIT_ROLES = ["admin", "poweruser"]
 
+# Human labels for 專案歷程 change-log entries. Keyed by the field name on
+# Project / ProjectStage.
+PROJECT_FIELD_LABELS = {
+    "name": "案名",
+    "business_unit": "業務處",
+    "sales_rep": "業務人員",
+    "status": "狀態",
+    "budget_amount": "預算金額",
+    "estimated_bid_amount": "預計投標金額",
+    "estimated_cost": "預計成本",
+    "no_go_reason": "No Go 原因",
+    "progress_notes": "進度說明",
+    "show_new_progress": "顯示新進度標記",
+}
+STAGE_FIELD_LABELS = {
+    "planned_date": "表定日",
+    "actual_date": "實際日",
+    "overdue_reason": "逾期原因",
+}
+
 
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -52,6 +72,10 @@ class Project(SQLModel, table=True):
     estimated_cost: Optional[float] = None
     no_go_reason: Optional[str] = None
     progress_notes: Optional[str] = None
+    # Drives the "新進度" badge on the home page (roadmap + project list).
+    # Auto-set to True on create and on any real edit to this project's basic
+    # info; admin/poweruser can also flip it manually from the detail page.
+    show_new_progress: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -66,3 +90,13 @@ class ProjectStage(SQLModel, table=True):
     planned_date: Optional[date] = None
     actual_date: Optional[date] = None
     overdue_reason: Optional[str] = None
+
+
+class ProjectHistory(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    changed_at: datetime = Field(default_factory=datetime.utcnow)
+    changed_by: Optional[str] = None
+    summary: str
+    # JSON-encoded list of {field, label, old, new}
+    changes_json: str

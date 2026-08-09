@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api, canEditProjects, STATUS_OPTIONS } from "../api";
+import BackButton from "../components/BackButton";
 import MoneyInput from "../components/MoneyInput";
 
 const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
@@ -8,6 +9,11 @@ const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
 function formatMoney(value) {
   if (value === null || value === undefined) return "-";
   return `NT$ ${money.format(value)}`;
+}
+
+function formatDateTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString("zh-TW", { hour12: false });
 }
 
 function StageRow({ projectId, stage, onSaved, editable }) {
@@ -64,14 +70,54 @@ function StageRow({ projectId, stage, onSaved, editable }) {
   );
 }
 
+function HistoryEntryRow({ entry }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="history-entry">
+      <button type="button" className="history-entry-header" onClick={() => setOpen(!open)}>
+        <span className="history-entry-meta">
+          <span className="history-entry-date">{formatDateTime(entry.changed_at)}</span>
+          <span className="history-entry-summary">{entry.summary}</span>
+          {entry.changed_by && <span className="history-entry-by">by {entry.changed_by}</span>}
+        </span>
+        <span>{open ? "收合 ▲" : "查看異動 ▼"}</span>
+      </button>
+      {open && (
+        <div className="history-entry-details">
+          {entry.changes.length === 0 ? (
+            <p className="history-empty">無欄位異動明細。</p>
+          ) : (
+            entry.changes.map((c, i) => (
+              <div className="history-change-row" key={i}>
+                <span>{c.label}</span>
+                <span className="history-change-old">{c.old ?? "（空白）"}</span>
+                <span className="arrow">→</span>
+                <span className="history-change-new">{c.new ?? "（空白）"}</span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProjectDetail({ user }) {
   const { id } = useParams();
   const editable = canEditProjects(user.role);
   const [project, setProject] = useState(null);
   const [form, setForm] = useState(null);
+  const [history, setHistory] = useState(null);
   const [error, setError] = useState("");
   const [savingInfo, setSavingInfo] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
+
+  const loadHistory = () => {
+    api
+      .getProjectHistory(id)
+      .then(setHistory)
+      .catch((err) => setError(err.message));
+  };
 
   const load = () => {
     api
@@ -88,15 +134,17 @@ export default function ProjectDetail({ user }) {
           estimated_cost: p.estimated_cost ?? "",
           no_go_reason: p.no_go_reason || "",
           progress_notes: p.progress_notes || "",
+          show_new_progress: p.show_new_progress,
         });
       })
       .catch((err) => setError(err.message));
+    loadHistory();
   };
 
   useEffect(load, [id]);
 
   if (error) return <p className="error-text">{error}</p>;
-  if (!project || !form) return null;
+  if (!project || !form || !history) return null;
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
@@ -105,6 +153,7 @@ export default function ProjectDetail({ user }) {
       ...project,
       stages: project.stages.map((s) => (s.id === updatedStage.id ? updatedStage : s)),
     });
+    loadHistory();
   };
 
   const handleSaveInfo = async (e) => {
@@ -125,7 +174,9 @@ export default function ProjectDetail({ user }) {
       };
       const updated = await api.updateProject(project.id, payload);
       setProject(updated);
+      setForm({ ...form, show_new_progress: updated.show_new_progress });
       setSavedMsg("已儲存");
+      loadHistory();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -135,8 +186,12 @@ export default function ProjectDetail({ user }) {
 
   return (
     <div>
+      <BackButton />
       <div className="page-header">
-        <h1>{project.name}</h1>
+        <h1>
+          {project.name}
+          {project.show_new_progress && <span className="badge new">新進度</span>}
+        </h1>
         {project.is_overdue && <span className="badge overdue">有關卡逾期</span>}
       </div>
 
@@ -203,6 +258,18 @@ export default function ProjectDetail({ user }) {
             <label>進度說明</label>
             <textarea value={form.progress_notes} onChange={set("progress_notes")} disabled={!editable} />
           </div>
+          <div className="field">
+            <label>首頁「新進度」標記</label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+              <input
+                type="checkbox"
+                checked={form.show_new_progress}
+                onChange={(e) => setForm({ ...form, show_new_progress: e.target.checked })}
+                disabled={!editable}
+              />
+              <span className="muted">在首頁 Roadmap 與專案列表顯示「新進度」圖示</span>
+            </label>
+          </div>
         </div>
         {editable && (
           <div className="actions-row">
@@ -248,6 +315,19 @@ export default function ProjectDetail({ user }) {
           </tbody>
         </table>
         </div>
+      </div>
+
+      <div className="card">
+        <h2>專案歷程</h2>
+        {history.length === 0 ? (
+          <p className="history-empty">目前沒有歷程紀錄。</p>
+        ) : (
+          <div className="history-list">
+            {history.map((entry) => (
+              <HistoryEntryRow key={entry.id} entry={entry} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

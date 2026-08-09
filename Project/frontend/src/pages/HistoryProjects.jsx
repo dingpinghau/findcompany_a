@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, CLOSED_STATUSES } from "../api";
+import BackButton from "../components/BackButton";
 
 const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
 
@@ -24,6 +25,7 @@ export default function HistoryProjects() {
 
   return (
     <div>
+      <BackButton />
       <div className="page-header">
         <h1>前期專案查詢</h1>
       </div>

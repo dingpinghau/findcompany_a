@@ -18,6 +18,7 @@ export default function Roadmap({ projects }) {
       return {
         id: p.id,
         name: p.name,
+        showNewProgress: p.show_new_progress,
         start: Math.min(start, end),
         end: Math.max(start, end),
         hasBid: Boolean(p.bid_date),
@@ -75,7 +76,8 @@ export default function Roadmap({ projects }) {
             {rows.map((r) => (
               <div className="roadmap-row" key={r.id}>
                 <div className="roadmap-label" title={r.name}>
-                  {r.name}
+                  <span className="roadmap-label-text">{r.name}</span>
+                  {r.showNewProgress && <span className="badge new">新進度</span>}
                 </div>
                 <div className="roadmap-track">
                   {r.hasBid && (

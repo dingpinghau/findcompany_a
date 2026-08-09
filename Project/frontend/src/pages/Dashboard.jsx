@@ -109,6 +109,7 @@ export default function Dashboard({ user }) {
                   <Link className="project-name-link" to={`/projects/${p.id}`}>
                     {p.name}
                   </Link>
+                  {p.show_new_progress && <span className="badge new">新進度</span>}
                 </td>
                 <td>{p.business_unit || "-"}</td>
                 <td>

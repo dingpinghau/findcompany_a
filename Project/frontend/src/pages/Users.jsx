@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ROLE_LABELS, ROLE_OPTIONS } from "../api";
+import BackButton from "../components/BackButton";
 
 export default function Users() {
   const [users, setUsers] = useState([]);
@@ -44,6 +45,7 @@ export default function Users() {
 
   return (
     <div>
+      <BackButton />
       <div className="page-header">
         <h1>帳號管理</h1>
       </div>

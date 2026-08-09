@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, STATUS_OPTIONS } from "../api";
+import BackButton from "../components/BackButton";
 import MoneyInput from "../components/MoneyInput";
 
 const empty = {
@@ -51,6 +52,7 @@ export default function ProjectNew() {
 
   return (
     <div>
+      <BackButton />
       <div className="page-header">
         <h1>建立新專案</h1>
       </div>

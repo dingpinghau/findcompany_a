@@ -30,6 +30,7 @@ export const api = {
   updateProject: (id, payload) => request(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   updateStage: (projectId, stageId, payload) =>
     request(`/projects/${projectId}/stages/${stageId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  getProjectHistory: (id) => request(`/projects/${id}/history`),
 
   dashboardSummary: () => request("/dashboard/summary"),
 

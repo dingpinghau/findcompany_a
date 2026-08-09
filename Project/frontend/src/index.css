@@ -288,6 +288,99 @@ tr:last-child td {
   color: var(--text-muted);
 }
 
+.badge.new {
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--success);
+  margin-left: 8px;
+}
+
+.back-button {
+  margin-bottom: 16px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-entry {
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.history-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  cursor: pointer;
+  border: none;
+  width: 100%;
+  text-align: left;
+  color: var(--text);
+}
+
+.history-entry-header:hover {
+  border-color: var(--accent);
+}
+
+.history-entry-meta {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  font-size: 13px;
+}
+
+.history-entry-date {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+
+.history-entry-summary {
+  font-weight: 500;
+}
+
+.history-entry-by {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.history-entry-details {
+  padding: 10px 14px;
+  border-top: 1px solid var(--card-border);
+}
+
+.history-change-row {
+  display: grid;
+  grid-template-columns: 140px 1fr auto 1fr;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+.history-change-row .arrow {
+  color: var(--text-muted);
+}
+
+.history-change-old {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.history-change-new {
+  color: var(--success);
+}
+
+.history-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -474,11 +567,23 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .roadmap-label {
   width: 220px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
   font-size: 13px;
+  padding-right: 14px;
+}
+
+.roadmap-label-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding-right: 14px;
+}
+
+.roadmap-label .badge.new {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  font-size: 10px;
 }
 
 .roadmap-axis .roadmap-label {

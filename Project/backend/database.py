@@ -21,9 +21,19 @@ def _migrate_user_role_column() -> None:
             conn.execute(text("ALTER TABLE user ADD COLUMN role TEXT DEFAULT 'user'"))
 
 
+def _migrate_project_show_new_progress_column() -> None:
+    """Added after existing databases were already seeded — same story as
+    the role column above."""
+    with engine.begin() as conn:
+        columns = [row[1] for row in conn.execute(text("PRAGMA table_info(project)"))]
+        if "show_new_progress" not in columns:
+            conn.execute(text("ALTER TABLE project ADD COLUMN show_new_progress BOOLEAN DEFAULT 1"))
+
+
 def init_db() -> None:
     SQLModel.metadata.create_all(engine)
     _migrate_user_role_column()
+    _migrate_project_show_new_progress_column()
 
 
 def get_session():
