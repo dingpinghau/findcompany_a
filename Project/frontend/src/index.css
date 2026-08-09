@@ -265,6 +265,26 @@ td.text-right {
   text-align: right;
 }
 
+th.th-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+th.th-sortable:hover {
+  color: var(--text);
+}
+
+th.th-sortable .sort-arrow {
+  display: inline-block;
+  margin-left: 4px;
+  opacity: 0.5;
+}
+
+th.th-sortable.active .sort-arrow {
+  opacity: 1;
+}
+
 tr:last-child td {
   border-bottom: none;
 }

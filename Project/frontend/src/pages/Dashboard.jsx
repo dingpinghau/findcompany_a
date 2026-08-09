@@ -21,10 +21,38 @@ function StatusBadge({ status }) {
   return <span className="badge">{status}</span>;
 }
 
+function compareValues(a, b, direction) {
+  const dir = direction === "asc" ? 1 : -1;
+  if (a === null || a === undefined || a === "") return b === null || b === undefined || b === "" ? 0 : 1;
+  if (b === null || b === undefined || b === "") return -1;
+  if (typeof a === "number" && typeof b === "number") return (a - b) * dir;
+  return String(a).localeCompare(String(b), "zh-TW") * dir;
+}
+
+function SortableHeader({ column, sortConfig, onSort }) {
+  const active = sortConfig.key === column.key;
+  return (
+    <th
+      className={`th-sortable ${column.className || ""} ${active ? "active" : ""}`}
+      onClick={() => onSort(column.key)}
+    >
+      {column.label}
+      <span className="sort-arrow">{active ? (sortConfig.direction === "asc" ? "▲" : "▼") : "⇅"}</span>
+    </th>
+  );
+}
+
 export default function Dashboard({ user }) {
   const [summary, setSummary] = useState(null);
   const [projects, setProjects] = useState([]);
   const [error, setError] = useState("");
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+
+  const handleSort = (key) => {
+    setSortConfig((prev) =>
+      prev.key === key ? { key, direction: prev.direction === "asc" ? "desc" : "asc" } : { key, direction: "asc" }
+    );
+  };
 
   useEffect(() => {
     Promise.all([api.dashboardSummary(), api.listProjects()])
@@ -41,6 +69,10 @@ export default function Dashboard({ user }) {
   const maxStatusCount = Math.max(1, ...Object.values(summary.status_counts));
   const activeProjects = projects.filter((p) => !CLOSED_STATUSES.includes(p.status));
   const roadmapProjects = activeProjects.filter((p) => ROADMAP_STATUSES.includes(p.status));
+
+  const sortedProjects = sortConfig.key
+    ? [...activeProjects].sort((a, b) => compareValues(a[sortConfig.key], b[sortConfig.key], sortConfig.direction))
+    : activeProjects;
 
   return (
     <div>
@@ -95,15 +127,19 @@ export default function Dashboard({ user }) {
           <thead>
             <tr>
               <th>案名</th>
-              <th>業務處</th>
-              <th>狀態</th>
-              <th>投標日</th>
+              <SortableHeader column={{ key: "business_unit", label: "業務處" }} sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader column={{ key: "status", label: "狀態" }} sortConfig={sortConfig} onSort={handleSort} />
+              <SortableHeader column={{ key: "bid_date", label: "投標日" }} sortConfig={sortConfig} onSort={handleSort} />
               <th>逾期</th>
-              <th className="text-right">預算金額(NT$)</th>
+              <SortableHeader
+                column={{ key: "budget_amount", label: "預算金額(NT$)", className: "text-right" }}
+                sortConfig={sortConfig}
+                onSort={handleSort}
+              />
             </tr>
           </thead>
           <tbody>
-            {activeProjects.map((p) => (
+            {sortedProjects.map((p) => (
               <tr key={p.id}>
                 <td>
                   <Link className="project-name-link" to={`/projects/${p.id}`}>
