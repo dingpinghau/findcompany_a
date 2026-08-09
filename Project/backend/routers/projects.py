@@ -20,6 +20,7 @@ from backend.models import (
 
 router = APIRouter(prefix="/api/projects", tags=["projects"], dependencies=[Depends(require_login)])
 can_edit_projects = Depends(require_role(*PROJECT_EDIT_ROLES))
+can_manage_history = Depends(require_role("admin"))
 
 
 def stage_is_overdue(stage: ProjectStage, today: date) -> bool:
@@ -258,6 +259,16 @@ def get_project_history(project_id: int, session: Session = Depends(get_session)
         )
         for e in entries
     ]
+
+
+@router.delete("/{project_id}/history/{history_id}", dependencies=[can_manage_history])
+def delete_project_history(project_id: int, history_id: int, session: Session = Depends(get_session)):
+    entry = session.get(ProjectHistory, history_id)
+    if not entry or entry.project_id != project_id:
+        raise HTTPException(status_code=404, detail="找不到歷程紀錄")
+    session.delete(entry)
+    session.commit()
+    return {"ok": True}
 
 
 @router.patch("/{project_id}", response_model=ProjectDetailOut, dependencies=[can_edit_projects])

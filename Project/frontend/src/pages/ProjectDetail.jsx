@@ -70,12 +70,20 @@ function StageRow({ projectId, stage, onSaved, editable }) {
   );
 }
 
-function HistoryEntryRow({ entry }) {
+function HistoryEntryRow({ entry, canDelete, selected, onToggleSelect }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="history-entry">
       <button type="button" className="history-entry-header" onClick={() => setOpen(!open)}>
         <span className="history-entry-meta">
+          {canDelete && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onClick={(e) => e.stopPropagation()}
+              onChange={() => onToggleSelect(entry.id)}
+            />
+          )}
           <span className="history-entry-date">{formatDateTime(entry.changed_at)}</span>
           <span className="history-entry-summary">{entry.summary}</span>
           {entry.changed_by && <span className="history-entry-by">by {entry.changed_by}</span>}
@@ -105,9 +113,12 @@ function HistoryEntryRow({ entry }) {
 export default function ProjectDetail({ user }) {
   const { id } = useParams();
   const editable = canEditProjects(user.role);
+  const isAdmin = user.role === "admin";
   const [project, setProject] = useState(null);
   const [form, setForm] = useState(null);
   const [history, setHistory] = useState(null);
+  const [selectedHistoryIds, setSelectedHistoryIds] = useState([]);
+  const [deletingHistory, setDeletingHistory] = useState(false);
   const [error, setError] = useState("");
   const [savingInfo, setSavingInfo] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
@@ -115,8 +126,31 @@ export default function ProjectDetail({ user }) {
   const loadHistory = () => {
     api
       .getProjectHistory(id)
-      .then(setHistory)
+      .then((h) => {
+        setHistory(h);
+        setSelectedHistoryIds([]);
+      })
       .catch((err) => setError(err.message));
+  };
+
+  const toggleHistorySelect = (historyId) => {
+    setSelectedHistoryIds((ids) =>
+      ids.includes(historyId) ? ids.filter((x) => x !== historyId) : [...ids, historyId]
+    );
+  };
+
+  const handleDeleteSelectedHistory = async () => {
+    if (selectedHistoryIds.length === 0) return;
+    if (!confirm(`確定要刪除選取的 ${selectedHistoryIds.length} 筆歷程紀錄嗎？此動作無法復原。`)) return;
+    setDeletingHistory(true);
+    try {
+      await Promise.all(selectedHistoryIds.map((historyId) => api.deleteProjectHistory(project.id, historyId)));
+      loadHistory();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeletingHistory(false);
+    }
   };
 
   const load = () => {
@@ -322,11 +356,31 @@ export default function ProjectDetail({ user }) {
         {history.length === 0 ? (
           <p className="history-empty">目前沒有歷程紀錄。</p>
         ) : (
-          <div className="history-list">
-            {history.map((entry) => (
-              <HistoryEntryRow key={entry.id} entry={entry} />
-            ))}
-          </div>
+          <>
+            {isAdmin && (
+              <div className="actions-row">
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={handleDeleteSelectedHistory}
+                  disabled={selectedHistoryIds.length === 0 || deletingHistory}
+                >
+                  {deletingHistory ? "刪除中..." : `刪除已選取紀錄 (${selectedHistoryIds.length})`}
+                </button>
+              </div>
+            )}
+            <div className="history-list">
+              {history.map((entry) => (
+                <HistoryEntryRow
+                  key={entry.id}
+                  entry={entry}
+                  canDelete={isAdmin}
+                  selected={selectedHistoryIds.includes(entry.id)}
+                  onToggleSelect={toggleHistorySelect}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

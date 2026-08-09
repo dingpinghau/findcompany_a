@@ -31,6 +31,8 @@ export const api = {
   updateStage: (projectId, stageId, payload) =>
     request(`/projects/${projectId}/stages/${stageId}`, { method: "PATCH", body: JSON.stringify(payload) }),
   getProjectHistory: (id) => request(`/projects/${id}/history`),
+  deleteProjectHistory: (projectId, historyId) =>
+    request(`/projects/${projectId}/history/${historyId}`, { method: "DELETE" }),
 
   dashboardSummary: () => request("/dashboard/summary"),
 
