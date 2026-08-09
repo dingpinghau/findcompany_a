@@ -3,9 +3,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -49,4 +49,15 @@ app.include_router(projects.router)
 app.include_router(dashboard.router)
 
 if FRONTEND_DIST.exists():
-    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+    # A plain StaticFiles mount 404s on client-side routes like /projects/5
+    # when the browser reloads there, since no such file exists on disk.
+    # Serve the matching static asset if there is one, otherwise fall back
+    # to index.html so React Router can take over.
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        candidate = FRONTEND_DIST / full_path
+        if candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(FRONTEND_DIST / "index.html")
