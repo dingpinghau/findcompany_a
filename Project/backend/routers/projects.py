@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 from backend.auth import require_login, require_role
 from backend.database import get_session
 from backend.models import (
+    BID_SUBMIT_STAGE_KEY,
     PROJECT_EDIT_ROLES,
     PROJECT_FIELD_LABELS,
     STAGE_FIELD_LABELS,
@@ -87,7 +88,10 @@ class CreateProjectPayload(BaseModel):
     estimated_bid_amount: Optional[float] = None
     estimated_cost: Optional[float] = None
     progress_notes: Optional[str] = None
-    bid_date: date
+    bid_date: Optional[date] = None
+
+
+NO_BID_DATE_REQUIRED_STATUSES = ("待公告", "公開徵求")
 
 
 class UpdateProjectPayload(BaseModel):
@@ -101,6 +105,7 @@ class UpdateProjectPayload(BaseModel):
     no_go_reason: Optional[str] = None
     progress_notes: Optional[str] = None
     show_new_progress: Optional[bool] = None
+    bid_date: Optional[date] = None
 
 
 class UpdateStagePayload(BaseModel):
@@ -184,6 +189,9 @@ def list_projects(session: Session = Depends(get_session)):
 
 @router.post("", response_model=ProjectDetailOut, dependencies=[can_edit_projects])
 def create_project(payload: CreateProjectPayload, request: Request, session: Session = Depends(get_session)):
+    if payload.bid_date is None and payload.status not in NO_BID_DATE_REQUIRED_STATUSES:
+        raise HTTPException(status_code=422, detail="此狀態需要填寫投標日")
+
     project = Project(
         name=payload.name,
         business_unit=payload.business_unit,
@@ -207,7 +215,7 @@ def create_project(payload: CreateProjectPayload, request: Request, session: Ses
             stage_name=definition["stage_name"],
             sequence=definition["sequence"],
             offset_days=definition["offset_days"],
-            planned_date=payload.bid_date + timedelta(days=definition["offset_days"]),
+            planned_date=payload.bid_date + timedelta(days=definition["offset_days"]) if payload.bid_date else None,
         )
         session.add(stage)
         stages.append(stage)
@@ -280,6 +288,9 @@ def update_project(
         raise HTTPException(status_code=404, detail="找不到專案")
 
     updates = payload.model_dump(exclude_unset=True)
+    bid_date_provided = "bid_date" in updates
+    new_bid_date = updates.pop("bid_date", None)
+
     changes = []
     other_field_changed = False
     for key, value in updates.items():
@@ -291,6 +302,38 @@ def update_project(
             if key != "show_new_progress":
                 other_field_changed = True
         setattr(project, key, value)
+
+    stages = session.exec(
+        select(ProjectStage).where(ProjectStage.project_id == project_id).order_by(ProjectStage.sequence)
+    ).all()
+
+    if bid_date_provided:
+        bid_submit_stage = next((s for s in stages if s.stage_key == BID_SUBMIT_STAGE_KEY), None)
+        already_bid = bool(bid_submit_stage and bid_submit_stage.actual_date)
+        if not already_bid:
+            old_bid_date = _derive_stage_date(stages, BID_SUBMIT_STAGE_KEY)
+            if old_bid_date != new_bid_date:
+                changes.append(
+                    {"field": "bid_date", "label": "投標日", "old": _stringify(old_bid_date), "new": _stringify(new_bid_date)}
+                )
+                other_field_changed = True
+            for stage in stages:
+                if stage.actual_date is not None:
+                    continue
+                new_planned = (new_bid_date + timedelta(days=stage.offset_days)) if new_bid_date else None
+                if stage.planned_date == new_planned:
+                    continue
+                if stage.stage_key != BID_SUBMIT_STAGE_KEY:
+                    changes.append(
+                        {
+                            "field": f"stage_{stage.stage_key}_planned_date",
+                            "label": f"{stage.stage_name} 表定日",
+                            "old": _stringify(stage.planned_date),
+                            "new": _stringify(new_planned),
+                        }
+                    )
+                stage.planned_date = new_planned
+                session.add(stage)
 
     if other_field_changed:
         project.show_new_progress = True

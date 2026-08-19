@@ -169,6 +169,7 @@ export default function ProjectDetail({ user }) {
           no_go_reason: p.no_go_reason || "",
           progress_notes: p.progress_notes || "",
           show_new_progress: p.show_new_progress,
+          bid_date: p.bid_date || "",
         });
       })
       .catch((err) => setError(err.message));
@@ -181,6 +182,9 @@ export default function ProjectDetail({ user }) {
   if (!project || !form || !history) return null;
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+
+  const bidSubmitStage = project.stages.find((s) => s.stage_key === "bid_submit");
+  const bidLocked = Boolean(bidSubmitStage && bidSubmitStage.actual_date);
 
   const handleStageSaved = (updatedStage) => {
     setProject({
@@ -205,10 +209,11 @@ export default function ProjectDetail({ user }) {
         sales_rep: form.sales_rep || null,
         no_go_reason: form.no_go_reason || null,
         progress_notes: form.progress_notes || null,
+        bid_date: form.bid_date || null,
       };
       const updated = await api.updateProject(project.id, payload);
       setProject(updated);
-      setForm({ ...form, show_new_progress: updated.show_new_progress });
+      setForm({ ...form, show_new_progress: updated.show_new_progress, bid_date: updated.bid_date || "" });
       setSavedMsg("已儲存");
       loadHistory();
     } catch (err) {
@@ -256,7 +261,16 @@ export default function ProjectDetail({ user }) {
           </div>
           <div className="field">
             <label>投標日（依「投標」關卡）</label>
-            <input value={project.bid_date || "-"} disabled />
+            {bidLocked ? (
+              <input value={project.bid_date || "-"} disabled />
+            ) : (
+              <input
+                type="date"
+                value={form.bid_date}
+                onChange={(e) => setForm({ ...form, bid_date: e.target.value })}
+                disabled={!editable}
+              />
+            )}
           </div>
           <div className="field">
             <label>預算金額（含稅）</label>
@@ -339,7 +353,7 @@ export default function ProjectDetail({ user }) {
               .sort((a, b) => a.sequence - b.sequence)
               .map((stage) => (
                 <StageRow
-                  key={stage.id}
+                  key={`${stage.id}-${stage.planned_date}-${stage.actual_date}-${stage.overdue_reason}`}
                   projectId={project.id}
                   stage={stage}
                   onSaved={handleStageSaved}

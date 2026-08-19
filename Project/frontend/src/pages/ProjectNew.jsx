@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, STATUS_OPTIONS } from "../api";
+
+const NO_BID_DATE_REQUIRED_STATUSES = ["待公告", "公開徵求"];
 import BackButton from "../components/BackButton";
 import MoneyInput from "../components/MoneyInput";
 
@@ -25,6 +27,7 @@ function toPayload(form) {
     business_unit: form.business_unit || null,
     sales_rep: form.sales_rep || null,
     progress_notes: form.progress_notes || null,
+    bid_date: form.bid_date || null,
   };
 }
 
@@ -82,7 +85,12 @@ export default function ProjectNew() {
           </div>
           <div className="field">
             <label>投標日</label>
-            <input type="date" value={form.bid_date} onChange={set("bid_date")} required />
+            <input
+              type="date"
+              value={form.bid_date}
+              onChange={set("bid_date")}
+              required={!NO_BID_DATE_REQUIRED_STATUSES.includes(form.status)}
+            />
           </div>
           <div className="field">
             <label>預算金額（含稅）</label>
@@ -113,6 +121,7 @@ export default function ProjectNew() {
       </form>
       <p className="muted">
         建立後，系統會依投標日自動算出 8 個關卡（領標、建案會議…）的表定日，可在專案細節頁調整並填寫實際完成日。
+        待公告、公開徵求狀態可先不填投標日，之後在專案細節頁補上即可自動算出關卡表定日。
       </p>
     </div>
   );
