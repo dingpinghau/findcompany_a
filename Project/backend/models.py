@@ -52,6 +52,12 @@ STAGE_FIELD_LABELS = {
     "overdue_reason": "逾期原因",
 }
 
+ALLOWED_ATTACHMENT_EXTENSIONS = {
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".png", ".jpg", ".jpeg", ".gif", ".zip", ".rar", ".7z", ".txt",
+}
+MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024
+
 
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -100,3 +106,14 @@ class ProjectHistory(SQLModel, table=True):
     summary: str
     # JSON-encoded list of {field, label, old, new}
     changes_json: str
+
+
+class ProjectAttachment(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    filename: str
+    stored_name: str
+    size_bytes: int
+    content_type: Optional[str] = None
+    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+    uploaded_by: Optional[str] = None

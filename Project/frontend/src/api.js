@@ -3,7 +3,7 @@ const BASE = "/api";
 async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
     credentials: "include",
-    headers: options.body ? { "Content-Type": "application/json" } : undefined,
+    headers: options.body instanceof FormData ? undefined : options.body ? { "Content-Type": "application/json" } : undefined,
     ...options,
   });
   if (res.status === 401) {
@@ -34,6 +34,20 @@ export const api = {
   deleteProjectHistory: (projectId, historyId) =>
     request(`/projects/${projectId}/history/${historyId}`, { method: "DELETE" }),
 
+  listAttachments: (projectId) => request(`/projects/${projectId}/attachments`),
+  uploadAttachment: (projectId, file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request(`/projects/${projectId}/attachments`, { method: "POST", body: formData });
+  },
+  renameAttachment: (projectId, attachmentId, filename) =>
+    request(`/projects/${projectId}/attachments/${attachmentId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ filename }),
+    }),
+  deleteAttachment: (projectId, attachmentId) =>
+    request(`/projects/${projectId}/attachments/${attachmentId}`, { method: "DELETE" }),
+
   dashboardSummary: () => request("/dashboard/summary"),
 
   listUsers: () => request("/users"),
@@ -48,3 +62,9 @@ export const ROLE_OPTIONS = ["admin", "poweruser", "user"];
 export const ROLE_LABELS = { admin: "管理員 (admin)", poweruser: "進階使用者 (poweruser)", user: "一般使用者 (user)" };
 const PROJECT_EDIT_ROLES = ["admin", "poweruser"];
 export const canEditProjects = (role) => PROJECT_EDIT_ROLES.includes(role);
+
+export const ALLOWED_ATTACHMENT_EXTENSIONS = [
+  ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+  ".png", ".jpg", ".jpeg", ".gif", ".zip", ".rar", ".7z", ".txt",
+];
+export const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024;

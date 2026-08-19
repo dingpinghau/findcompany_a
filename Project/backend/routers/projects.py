@@ -1,19 +1,25 @@
 import json
+import uuid
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from backend.auth import require_login, require_role
-from backend.database import get_session
+from backend.database import UPLOADS_DIR, get_session
 from backend.models import (
+    ALLOWED_ATTACHMENT_EXTENSIONS,
     BID_SUBMIT_STAGE_KEY,
+    MAX_ATTACHMENT_SIZE,
     PROJECT_EDIT_ROLES,
     PROJECT_FIELD_LABELS,
     STAGE_FIELD_LABELS,
     Project,
+    ProjectAttachment,
     ProjectHistory,
     ProjectStage,
     STAGE_DEFINITIONS,
@@ -22,6 +28,7 @@ from backend.models import (
 router = APIRouter(prefix="/api/projects", tags=["projects"], dependencies=[Depends(require_login)])
 can_edit_projects = Depends(require_role(*PROJECT_EDIT_ROLES))
 can_manage_history = Depends(require_role("admin"))
+can_manage_attachments = Depends(require_role("admin"))
 
 
 def stage_is_overdue(stage: ProjectStage, today: date) -> bool:
@@ -77,6 +84,19 @@ class HistoryEntryOut(BaseModel):
     changed_by: Optional[str]
     summary: str
     changes: list[HistoryChangeOut]
+
+
+class AttachmentOut(BaseModel):
+    id: int
+    filename: str
+    size_bytes: int
+    content_type: Optional[str]
+    uploaded_at: datetime
+    uploaded_by: Optional[str]
+
+
+class RenameAttachmentPayload(BaseModel):
+    filename: str
 
 
 class CreateProjectPayload(BaseModel):
@@ -275,6 +295,121 @@ def delete_project_history(project_id: int, history_id: int, session: Session = 
     if not entry or entry.project_id != project_id:
         raise HTTPException(status_code=404, detail="找不到歷程紀錄")
     session.delete(entry)
+    session.commit()
+    return {"ok": True}
+
+
+@router.get("/{project_id}/attachments", response_model=list[AttachmentOut])
+def list_attachments(project_id: int, session: Session = Depends(get_session)):
+    attachments = session.exec(
+        select(ProjectAttachment)
+        .where(ProjectAttachment.project_id == project_id)
+        .order_by(ProjectAttachment.uploaded_at.desc())
+    ).all()
+    return attachments
+
+
+@router.post("/{project_id}/attachments", response_model=AttachmentOut, dependencies=[can_edit_projects])
+async def upload_attachment(
+    project_id: int, request: Request, file: UploadFile = File(...), session: Session = Depends(get_session)
+):
+    project = session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="找不到專案")
+
+    ext = Path(file.filename).suffix.lower()
+    if ext not in ALLOWED_ATTACHMENT_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="不支援的檔案格式")
+
+    contents = await file.read(MAX_ATTACHMENT_SIZE + 1)
+    if len(contents) > MAX_ATTACHMENT_SIZE:
+        raise HTTPException(status_code=413, detail="檔案大小超過 20MB 上限")
+
+    stored_name = f"{uuid.uuid4().hex}{ext}"
+    (UPLOADS_DIR / stored_name).write_bytes(contents)
+
+    attachment = ProjectAttachment(
+        project_id=project_id,
+        filename=file.filename,
+        stored_name=stored_name,
+        size_bytes=len(contents),
+        content_type=file.content_type,
+        uploaded_by=request.session.get("username"),
+    )
+    session.add(attachment)
+    session.add(
+        ProjectHistory(
+            project_id=project_id,
+            summary=f"新增附件：{file.filename}",
+            changes_json="[]",
+            changed_by=request.session.get("username"),
+        )
+    )
+    session.commit()
+    session.refresh(attachment)
+    return attachment
+
+
+@router.get("/{project_id}/attachments/{attachment_id}/download")
+def download_attachment(project_id: int, attachment_id: int, session: Session = Depends(get_session)):
+    attachment = session.get(ProjectAttachment, attachment_id)
+    if not attachment or attachment.project_id != project_id:
+        raise HTTPException(status_code=404, detail="找不到附件")
+    path = UPLOADS_DIR / attachment.stored_name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="找不到附件檔案")
+    return FileResponse(path, filename=attachment.filename, media_type=attachment.content_type or "application/octet-stream")
+
+
+@router.patch(
+    "/{project_id}/attachments/{attachment_id}", response_model=AttachmentOut, dependencies=[can_manage_attachments]
+)
+def rename_attachment(
+    project_id: int,
+    attachment_id: int,
+    payload: RenameAttachmentPayload,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    attachment = session.get(ProjectAttachment, attachment_id)
+    if not attachment or attachment.project_id != project_id:
+        raise HTTPException(status_code=404, detail="找不到附件")
+
+    old_filename = attachment.filename
+    if payload.filename != old_filename:
+        attachment.filename = payload.filename
+        session.add(attachment)
+        session.add(
+            ProjectHistory(
+                project_id=project_id,
+                summary=f"附件更名：{old_filename} → {payload.filename}",
+                changes_json="[]",
+                changed_by=request.session.get("username"),
+            )
+        )
+    session.commit()
+    session.refresh(attachment)
+    return attachment
+
+
+@router.delete("/{project_id}/attachments/{attachment_id}", dependencies=[can_manage_attachments])
+def delete_attachment(
+    project_id: int, attachment_id: int, request: Request, session: Session = Depends(get_session)
+):
+    attachment = session.get(ProjectAttachment, attachment_id)
+    if not attachment or attachment.project_id != project_id:
+        raise HTTPException(status_code=404, detail="找不到附件")
+
+    (UPLOADS_DIR / attachment.stored_name).unlink(missing_ok=True)
+    session.delete(attachment)
+    session.add(
+        ProjectHistory(
+            project_id=project_id,
+            summary=f"刪除附件：{attachment.filename}",
+            changes_json="[]",
+            changed_by=request.session.get("username"),
+        )
+    )
     session.commit()
     return {"ok": True}
 

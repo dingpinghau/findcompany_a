@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { api, canEditProjects, STATUS_OPTIONS } from "../api";
+import { ALLOWED_ATTACHMENT_EXTENSIONS, MAX_ATTACHMENT_SIZE, api, canEditProjects, STATUS_OPTIONS } from "../api";
 import BackButton from "../components/BackButton";
 import MoneyInput from "../components/MoneyInput";
 
@@ -14,6 +14,12 @@ function formatMoney(value) {
 function formatDateTime(iso) {
   const d = new Date(iso);
   return d.toLocaleString("zh-TW", { hour12: false });
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function StageRow({ projectId, stage, onSaved, editable }) {
@@ -110,6 +116,80 @@ function HistoryEntryRow({ entry, canDelete, selected, onToggleSelect }) {
   );
 }
 
+function AttachmentRow({ projectId, attachment, isAdmin, onChanged }) {
+  const [renaming, setRenaming] = useState(false);
+  const [newName, setNewName] = useState(attachment.filename);
+  const [saving, setSaving] = useState(false);
+
+  const handleRename = async () => {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === attachment.filename) {
+      setRenaming(false);
+      setNewName(attachment.filename);
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.renameAttachment(projectId, attachment.id, trimmed);
+      setRenaming(false);
+      onChanged();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`確定要刪除附件「${attachment.filename}」嗎？此動作無法復原。`)) return;
+    await api.deleteAttachment(projectId, attachment.id);
+    onChanged();
+  };
+
+  return (
+    <tr>
+      <td>
+        {renaming ? (
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} disabled={saving} />
+        ) : (
+          <a href={`/api/projects/${projectId}/attachments/${attachment.id}/download`}>{attachment.filename}</a>
+        )}
+      </td>
+      <td>{formatFileSize(attachment.size_bytes)}</td>
+      <td>{formatDateTime(attachment.uploaded_at)}</td>
+      <td>{attachment.uploaded_by || "-"}</td>
+      <td>
+        {isAdmin &&
+          (renaming ? (
+            <>
+              <button className="btn" disabled={saving} onClick={handleRename}>
+                {saving ? "儲存中..." : "儲存"}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={saving}
+                onClick={() => {
+                  setRenaming(false);
+                  setNewName(attachment.filename);
+                }}
+              >
+                取消
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="btn" onClick={() => setRenaming(true)}>
+                編輯
+              </button>
+              <button type="button" className="btn btn-danger" onClick={handleDelete}>
+                刪除
+              </button>
+            </>
+          ))}
+      </td>
+    </tr>
+  );
+}
+
 export default function ProjectDetail({ user }) {
   const { id } = useParams();
   const editable = canEditProjects(user.role);
@@ -119,6 +199,9 @@ export default function ProjectDetail({ user }) {
   const [history, setHistory] = useState(null);
   const [selectedHistoryIds, setSelectedHistoryIds] = useState([]);
   const [deletingHistory, setDeletingHistory] = useState(false);
+  const [attachments, setAttachments] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [error, setError] = useState("");
   const [savingInfo, setSavingInfo] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
@@ -131,6 +214,10 @@ export default function ProjectDetail({ user }) {
         setSelectedHistoryIds([]);
       })
       .catch((err) => setError(err.message));
+  };
+
+  const loadAttachments = () => {
+    api.listAttachments(id).then(setAttachments).catch((err) => setError(err.message));
   };
 
   const toggleHistorySelect = (historyId) => {
@@ -150,6 +237,33 @@ export default function ProjectDetail({ user }) {
       setError(err.message);
     } finally {
       setDeletingHistory(false);
+    }
+  };
+
+  const handleUploadFile = async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploadError("");
+    const dotIndex = file.name.lastIndexOf(".");
+    const ext = dotIndex >= 0 ? file.name.slice(dotIndex).toLowerCase() : "";
+    if (!ALLOWED_ATTACHMENT_EXTENSIONS.includes(ext)) {
+      setUploadError("不支援的檔案格式");
+      return;
+    }
+    if (file.size > MAX_ATTACHMENT_SIZE) {
+      setUploadError("檔案大小超過 20MB 上限");
+      return;
+    }
+    setUploading(true);
+    try {
+      await api.uploadAttachment(project.id, file);
+      loadAttachments();
+      loadHistory();
+    } catch (err) {
+      setUploadError(err.message);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -174,12 +288,13 @@ export default function ProjectDetail({ user }) {
       })
       .catch((err) => setError(err.message));
     loadHistory();
+    loadAttachments();
   };
 
   useEffect(load, [id]);
 
   if (error) return <p className="error-text">{error}</p>;
-  if (!project || !form || !history) return null;
+  if (!project || !form || !history || !attachments) return null;
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
@@ -363,6 +478,48 @@ export default function ProjectDetail({ user }) {
           </tbody>
         </table>
         </div>
+      </div>
+
+      <div className="card">
+        <h2>附件</h2>
+        {editable && (
+          <div className="actions-row">
+            <input type="file" onChange={handleUploadFile} disabled={uploading} />
+            {uploading && <span className="muted">上傳中...</span>}
+          </div>
+        )}
+        {uploadError && <p className="error-text">{uploadError}</p>}
+        {attachments.length === 0 ? (
+          <p className="history-empty">目前沒有附件。</p>
+        ) : (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>檔名</th>
+                  <th>大小</th>
+                  <th>上傳時間</th>
+                  <th>上傳者</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {attachments.map((a) => (
+                  <AttachmentRow
+                    key={a.id}
+                    projectId={project.id}
+                    attachment={a}
+                    isAdmin={isAdmin}
+                    onChanged={() => {
+                      loadAttachments();
+                      loadHistory();
+                    }}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="card">

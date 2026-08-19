@@ -10,6 +10,11 @@ DB_PATH = Path(os.environ.get("DB_PATH", Path(__file__).resolve().parent / "app.
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 
+# Same volume as DB_PATH by default so attachments persist across Zeabur
+# redeploys without needing a second mounted volume.
+UPLOADS_DIR = Path(os.environ.get("UPLOADS_DIR", DB_PATH.parent / "uploads"))
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
 
 def _migrate_user_role_column() -> None:
     """SQLModel's create_all only creates missing tables, not missing columns
