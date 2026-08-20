@@ -442,6 +442,7 @@ tr:last-child td {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .field.span-2 {
@@ -711,5 +712,13 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .table-scroll {
     margin: 0 -16px;
     padding: 0 16px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field.span-2 {
+    grid-column: span 1;
   }
 }
