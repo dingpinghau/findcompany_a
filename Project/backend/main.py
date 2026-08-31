@@ -15,7 +15,7 @@ from sqlmodel import Session
 
 from backend.auth import ensure_bootstrap_admin
 from backend.database import engine, init_db
-from backend.routers import auth, dashboard, projects, users
+from backend.routers import auth, dashboard, dev_projects, projects, users
 
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
 
@@ -47,6 +47,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(projects.router)
 app.include_router(dashboard.router)
+app.include_router(dev_projects.router)
 
 if FRONTEND_DIST.exists():
     # A plain StaticFiles mount 404s on client-side routes like /projects/5

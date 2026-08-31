@@ -117,3 +117,96 @@ class ProjectAttachment(SQLModel, table=True):
     content_type: Optional[str] = None
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
     uploaded_by: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# "Project" module (internal software development project tracking).
+# Entirely separate domain from the SI tender-case tracking above — no
+# shared tables, no shared foreign keys. Only login/role plumbing is shared.
+# ---------------------------------------------------------------------------
+
+DEV_PROJECT_CATEGORIES = ["eService", "eSales", "eOperation", "eMarketing"]
+
+DEV_PROJECT_STAGE_DEFINITIONS = [
+    {"stage_key": "planning", "stage_name": "規劃", "sequence": 1},
+    {"stage_key": "frontend_dev", "stage_name": "前端開發", "sequence": 2},
+    {"stage_key": "backend_dev", "stage_name": "後端開發", "sequence": 3},
+    {"stage_key": "testing", "stage_name": "測試", "sequence": 4},
+    {"stage_key": "pending_launch", "stage_name": "預估上線", "sequence": 5},
+]
+
+DEV_PROJECT_STATUS_OPTIONS = ["規劃", "前端開發", "後端開發", "測試", "預估上線", "已上線"]
+DEV_PROJECT_PLANNING_STATUSES = {"規劃"}
+DEV_PROJECT_DEVELOPING_STATUSES = {"前端開發", "後端開發", "測試", "預估上線"}
+DEV_PROJECT_LIVE_STATUSES = {"已上線"}
+
+DEV_PROJECT_FIELD_LABELS = {
+    "name": "專案名稱",
+    "category": "類別",
+    "content_description": "內容說明",
+    "benefit_assessment": "效益評估",
+    "pm_name": "負責PM",
+    "tpm_name": "負責TPM",
+    "tpm_department": "TPM部門",
+    "claude_team_link": "Claude team link",
+    "established_date": "立案時間",
+    "status": "狀態",
+}
+DEV_PROJECT_STAGE_FIELD_LABELS = {
+    "planned_start_date": "表定開始日",
+    "planned_end_date": "表定結束日",
+    "actual_start_date": "實際開始日",
+    "actual_end_date": "實際結束日",
+    "notes": "重點說明",
+}
+
+
+class DevProject(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    category: str
+    content_description: Optional[str] = None
+    benefit_assessment: Optional[str] = None
+    pm_name: Optional[str] = None
+    tpm_name: Optional[str] = None
+    tpm_department: Optional[str] = None
+    claude_team_link: Optional[str] = None
+    established_date: Optional[date] = None
+    status: str = Field(default="規劃")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class DevProjectStage(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    dev_project_id: int = Field(foreign_key="devproject.id", index=True)
+    stage_key: str
+    stage_name: str
+    sequence: int
+    planned_start_date: Optional[date] = None
+    planned_end_date: Optional[date] = None
+    actual_start_date: Optional[date] = None
+    actual_end_date: Optional[date] = None
+    notes: Optional[str] = None
+
+
+class DevProjectHistory(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    dev_project_id: int = Field(foreign_key="devproject.id", index=True)
+    changed_at: datetime = Field(default_factory=datetime.utcnow)
+    changed_by: Optional[str] = None
+    summary: str
+    changes_json: str
+
+
+class DevProjectAttachment(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    dev_project_id: int = Field(foreign_key="devproject.id", index=True)
+    category: str
+    stage_id: Optional[int] = Field(default=None, foreign_key="devprojectstage.id")
+    filename: str
+    stored_name: str
+    size_bytes: int
+    content_type: Optional[str] = None
+    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+    uploaded_by: Optional[str] = None

@@ -129,6 +129,48 @@ textarea {
   text-decoration: none;
 }
 
+.topnav-menu {
+  position: relative;
+}
+
+.topnav-menu-trigger::after {
+  content: "▾";
+  margin-left: 4px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.topnav-submenu {
+  display: none;
+  flex-direction: column;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 10px;
+  min-width: 170px;
+  padding: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  z-index: 20;
+}
+
+.topnav-menu:hover .topnav-submenu,
+.topnav-menu:focus-within .topnav-submenu {
+  display: flex;
+}
+
+.topnav-submenu a {
+  padding: 7px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.topnav-submenu a:hover {
+  background: var(--accent-soft);
+}
+
 .link-button {
   background: none;
   border: none;
@@ -675,6 +717,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .actions-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 16px;
 }
@@ -720,5 +763,26 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
   .field.span-2 {
     grid-column: span 1;
+  }
+
+  .topnav-menu {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .topnav-submenu {
+    display: flex;
+    position: static;
+    margin-top: 4px;
+    margin-left: 12px;
+    padding: 0;
+    background: none;
+    border: none;
+    box-shadow: none;
+    min-width: 0;
+  }
+
+  .topnav-submenu a {
+    padding: 4px 0;
   }
 }

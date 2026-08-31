@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { api, canEditProjects } from "./api";
+import { api, canEditDevProjectMaster, canEditProjects } from "./api";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
+import DevProjectDetail from "./pages/DevProjectDetail";
+import DevProjectNew from "./pages/DevProjectNew";
+import DevProjectSearch from "./pages/DevProjectSearch";
+import DevProjectsDashboard from "./pages/DevProjectsDashboard";
 import HistoryProjects from "./pages/HistoryProjects";
 import Login from "./pages/Login";
 import ProjectDetail from "./pages/ProjectDetail";
 import ProjectNew from "./pages/ProjectNew";
+import TasksPlaceholder from "./pages/TasksPlaceholder";
 import Users from "./pages/Users";
 
 export default function App() {
@@ -41,6 +46,14 @@ export default function App() {
         />
         <Route path="/projects/:id" element={<ProjectDetail user={user} />} />
         <Route path="/history" element={<HistoryProjects />} />
+        <Route path="/dev-projects" element={<DevProjectsDashboard user={user} />} />
+        <Route
+          path="/dev-projects/new"
+          element={canEditDevProjectMaster(user.role) ? <DevProjectNew /> : <Navigate to="/dev-projects" replace />}
+        />
+        <Route path="/dev-projects/search" element={<DevProjectSearch />} />
+        <Route path="/dev-projects/:id" element={<DevProjectDetail user={user} />} />
+        <Route path="/tasks" element={<TasksPlaceholder />} />
         <Route path="/admin/users" element={user.role === "admin" ? <Users /> : <Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

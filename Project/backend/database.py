@@ -15,6 +15,11 @@ engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread"
 UPLOADS_DIR = Path(os.environ.get("UPLOADS_DIR", DB_PATH.parent / "uploads"))
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Dev-project ("Project" module) attachments live in their own subdirectory,
+# kept separate on disk from the unrelated SI attachments above.
+DEV_PROJECT_UPLOADS_DIR = UPLOADS_DIR / "dev-projects"
+DEV_PROJECT_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
 
 def _migrate_user_role_column() -> None:
     """SQLModel's create_all only creates missing tables, not missing columns
