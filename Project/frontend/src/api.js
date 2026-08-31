@@ -83,6 +83,15 @@ export const api = {
     }),
   deleteDevProjectAttachment: (devProjectId, attachmentId) =>
     request(`/dev-projects/${devProjectId}/attachments/${attachmentId}`, { method: "DELETE" }),
+
+  listTasks: (params = {}) => {
+    const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v));
+    const qs = query.toString();
+    return request(`/tasks${qs ? `?${qs}` : ""}`);
+  },
+  createTask: (payload) => request("/tasks", { method: "POST", body: JSON.stringify(payload) }),
+  getTask: (id) => request(`/tasks/${id}`),
+  updateTask: (id, payload) => request(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
 };
 
 export const STATUS_OPTIONS = ["待公告", "公開徵求", "進行中", "已得標", "已流標", "NO-GO", "已結案"];
@@ -111,3 +120,10 @@ const DEV_PROJECT_MASTER_EDIT_ROLES = ["admin"];
 const DEV_PROJECT_PROGRESS_EDIT_ROLES = ["admin", "poweruser"];
 export const canEditDevProjectMaster = (role) => DEV_PROJECT_MASTER_EDIT_ROLES.includes(role);
 export const canUpdateDevProjectProgress = (role) => DEV_PROJECT_PROGRESS_EDIT_ROLES.includes(role);
+
+// "Task" module (cross-team coordination items) — independent from SI and
+// Project above.
+export const TASK_STATUS_OPTIONS = ["規劃", "討論", "資料提供", "預定會議時程", "已完成"];
+export const TASK_DONE_STATUSES = ["已完成"];
+const TASK_EDIT_ROLES = ["admin", "poweruser"];
+export const canEditTasks = (role) => TASK_EDIT_ROLES.includes(role);

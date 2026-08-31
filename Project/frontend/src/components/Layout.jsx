@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { api, canEditDevProjectMaster, canEditProjects } from "../api";
+import { api, canEditDevProjectMaster, canEditProjects, canEditTasks } from "../api";
 import BrandLogo from "./BrandLogo";
 
 export default function Layout({ user, onLogout, children }) {
@@ -11,13 +11,14 @@ export default function Layout({ user, onLogout, children }) {
 
   const siActive = location.pathname === "/" || location.pathname.startsWith("/projects") || location.pathname.startsWith("/history");
   const projectActive = location.pathname.startsWith("/dev-projects");
+  const taskActive = location.pathname.startsWith("/tasks");
 
   return (
     <div className="app-shell">
       <div className="topnav">
         <div className="topnav-brand-group">
           <BrandLogo />
-          <div className="topnav-brand">ICT Major SI Project Management Platform</div>
+          <div className="topnav-brand">ICT Management Platform</div>
         </div>
         <div className="topnav-links">
           <div className="topnav-menu">
@@ -38,7 +39,15 @@ export default function Layout({ user, onLogout, children }) {
               <NavLink to="/dev-projects/search">專案搜尋</NavLink>
             </div>
           </div>
-          <NavLink to="/tasks">Task</NavLink>
+          <div className="topnav-menu">
+            <NavLink to="/tasks" className={`topnav-menu-trigger ${taskActive ? "active" : ""}`}>
+              Task
+            </NavLink>
+            <div className="topnav-submenu">
+              {canEditTasks(user.role) && <NavLink to="/tasks/new">新增/編輯</NavLink>}
+              <NavLink to="/tasks/search">事件搜尋</NavLink>
+            </div>
+          </div>
           {user.role === "admin" && <NavLink to="/admin/users">帳號管理</NavLink>}
         </div>
         <div className="topnav-user">

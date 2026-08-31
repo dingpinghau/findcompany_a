@@ -210,3 +210,26 @@ class DevProjectAttachment(SQLModel, table=True):
     content_type: Optional[str] = None
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
     uploaded_by: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# "Task" module (cross-team coordination items with a partner unit).
+# Entirely separate domain from SI and Project above — no shared tables.
+# ---------------------------------------------------------------------------
+
+TASK_STATUS_OPTIONS = ["規劃", "討論", "資料提供", "預定會議時程", "已完成"]
+TASK_DONE_STATUSES = {"已完成"}
+TASK_EDIT_ROLES = ["admin", "poweruser"]
+
+
+class Task(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    owner: Optional[str] = None
+    partner_unit: Optional[str] = None
+    partner_action: Optional[str] = None
+    status: str = Field(default="規劃")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
